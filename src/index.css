@@ -1,0 +1,267 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+  }
+}
+
+.font-bubble {
+  font-family: 'Fredoka', cursive, sans-serif;
+}
+
+.font-handwriting {
+  font-family: 'Caveat', cursive, sans-serif;
+}
+
+.font-cursive {
+  font-family: 'Sacramento', cursive, sans-serif;
+}
+
+/* Vertical pastel blue & white stripes seen in Image 1, 2, 3, 4, 6 */
+.bg-pastel-stripes {
+  background: repeating-linear-gradient(
+    90deg,
+    #ebf5fc,
+    #ebf5fc 34px,
+    #ffffff 34px,
+    #ffffff 68px
+  );
+}
+
+/* 3D Jelly Button as shown in Image 1, 2 */
+.btn-jelly-red {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #f87171 0%, #dc2626 50%, #b91c1c 100%);
+  color: #ffffff;
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 700;
+  border-radius: 9999px;
+  box-shadow: 0 6px 0 #991b1b, 0 10px 18px rgba(0, 0, 0, 0.2);
+  border: 3.5px solid #ffffff;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  cursor: pointer;
+  user-select: none;
+}
+
+.btn-jelly-red::before {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 12px;
+  right: 12px;
+  height: 42%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0.1) 100%);
+  border-radius: 9999px;
+  pointer-events: none;
+}
+
+.btn-jelly-red:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 0 #991b1b, 0 14px 22px rgba(0, 0, 0, 0.25);
+}
+
+.btn-jelly-red:active {
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 #991b1b, 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+/* Bubble text with 3D pink border */
+.text-bubble-pink {
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 700;
+  color: #ffffff;
+  text-shadow: 
+    -2px -2px 0 #f472b6,
+     2px -2px 0 #f472b6,
+    -2px  2px 0 #f472b6,
+     2px  2px 0 #f472b6,
+     0px  4px 0 #db2777,
+     0px  7px 12px rgba(219, 39, 119, 0.35);
+}
+
+/* Textured polaroid photo card */
+.polaroid-card {
+  background: #ffffff;
+  padding: 10px 10px 24px 10px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.18), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease;
+}
+
+.polaroid-card:hover {
+  transform: scale(1.05) rotate(0deg) !important;
+  z-index: 30;
+  box-shadow: 0 20px 30px -8px rgba(0, 0, 0, 0.25);
+}
+
+/* Denim Star Texture */
+.denim-scrapbook-bg {
+  background-color: #2c3e50;
+  background-image: 
+    radial-gradient(#ffffff 1px, transparent 1px),
+    radial-gradient(rgba(255, 255, 255, 0.15) 1px, #1a252f 1px);
+  background-size: 24px 24px;
+  background-position: 0 0, 12px 12px;
+}
+
+/* Dynamic Entrance Animations: Photos Flying in from different directions */
+@keyframes flyInTopLeft {
+  0% {
+    opacity: 0;
+    transform: translate3d(-350px, -300px, 0) rotate(-45deg) scale(0.4);
+  }
+  70% {
+    opacity: 1;
+    transform: translate3d(15px, 15px, 0) rotate(5deg) scale(1.05);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotate(var(--target-rot, -4deg)) scale(1);
+  }
+}
+
+@keyframes flyInTopRight {
+  0% {
+    opacity: 0;
+    transform: translate3d(350px, -300px, 0) rotate(45deg) scale(0.4);
+  }
+  70% {
+    opacity: 1;
+    transform: translate3d(-15px, 15px, 0) rotate(-5deg) scale(1.05);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotate(var(--target-rot, 5deg)) scale(1);
+  }
+}
+
+@keyframes flyInBottomLeft {
+  0% {
+    opacity: 0;
+    transform: translate3d(-350px, 300px, 0) rotate(-35deg) scale(0.4);
+  }
+  70% {
+    opacity: 1;
+    transform: translate3d(15px, -15px, 0) rotate(4deg) scale(1.05);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotate(var(--target-rot, -3deg)) scale(1);
+  }
+}
+
+@keyframes flyInBottomRight {
+  0% {
+    opacity: 0;
+    transform: translate3d(350px, 300px, 0) rotate(35deg) scale(0.4);
+  }
+  70% {
+    opacity: 1;
+    transform: translate3d(-15px, -15px, 0) rotate(-4deg) scale(1.05);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotate(var(--target-rot, 6deg)) scale(1);
+  }
+}
+
+@keyframes flyInCenter {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) scale(0) rotate(90deg);
+  }
+  70% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1.1) rotate(-5deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1) rotate(var(--target-rot, 0deg));
+  }
+}
+
+.anim-fly-top-left {
+  animation: flyInTopLeft 0.85s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.anim-fly-top-right {
+  animation: flyInTopRight 0.85s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.anim-fly-bottom-left {
+  animation: flyInBottomLeft 0.85s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.anim-fly-bottom-right {
+  animation: flyInBottomRight 0.85s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.anim-fly-center {
+  animation: flyInCenter 0.85s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Bouquet Entrance Animations: Swooping into frame from different places, then standing still */
+@keyframes bouquetFlyLeft {
+  0% {
+    opacity: 0;
+    transform: translate3d(-320px, 80px, 0) rotate(-25deg) scale(0.5);
+  }
+  75% {
+    opacity: 1;
+    transform: translate3d(15px, -10px, 0) rotate(4deg) scale(1.04);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+  }
+}
+
+@keyframes bouquetFlyTop {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, -300px, 0) scale(0.5);
+  }
+  75% {
+    opacity: 1;
+    transform: translate3d(0, 15px, 0) scale(1.05);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes bouquetFlyRight {
+  0% {
+    opacity: 0;
+    transform: translate3d(320px, 80px, 0) rotate(25deg) scale(0.5);
+  }
+  75% {
+    opacity: 1;
+    transform: translate3d(-15px, -10px, 0) rotate(-4deg) scale(1.04);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+  }
+}
+
+.anim-bouquet-left {
+  animation: bouquetFlyLeft 1s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.anim-bouquet-top {
+  animation: bouquetFlyTop 1s cubic-bezier(0.34, 1.56, 0.64, 1) 0.15s forwards;
+  opacity: 0;
+}
+
+.anim-bouquet-right {
+  animation: bouquetFlyRight 1s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s forwards;
+  opacity: 0;
+}

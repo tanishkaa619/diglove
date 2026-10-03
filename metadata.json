@@ -1,0 +1,6 @@
+{
+  "name": "Happy Boyfriend's Day - Surprise & Scrapbook",
+  "description": "An adorable pink aesthetic interactive Boyfriend's Day gift with secret passcode gate, animated gift prompt, bouquets, scrapbook memory collages, admin dashboard, and visitor guest book.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
