@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Sparkles, ChevronRight, ChevronLeft, Volume2, VolumeX, Settings } from 'lucide-react';
+import { Sparkles, ChevronRight, ChevronLeft, Volume2, VolumeX, Settings, RotateCcw } from 'lucide-react';
 import { BouquetData } from '../types.ts';
 import { PastelDoodleStars, CutoutBouquetRoses, CutoutBouquetSpring, CutoutBouquetLilies } from './CuteDoodles.tsx';
+import { BouquetCutoutWrapper } from './BouquetCutoutWrapper.tsx';
 import { cuteAudio } from '../utils/audio.ts';
 
 interface BouquetSelectScreenProps {
@@ -11,6 +12,7 @@ interface BouquetSelectScreenProps {
   onOpenAdmin: () => void;
   isMusicPlaying: boolean;
   onToggleMusic: () => void;
+  onResetBouquetCutout?: (bouquetId: string) => void;
 }
 
 export const BouquetSelectScreen: React.FC<BouquetSelectScreenProps> = ({
@@ -20,6 +22,7 @@ export const BouquetSelectScreen: React.FC<BouquetSelectScreenProps> = ({
   onOpenAdmin,
   isMusicPlaying,
   onToggleMusic,
+  onResetBouquetCutout,
 }) => {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const [activeSlide, setActiveSlide] = useState(0);
@@ -41,38 +44,43 @@ export const BouquetSelectScreen: React.FC<BouquetSelectScreenProps> = ({
 
   // Render user's custom uploaded bouquet image or authentic transparent cutout cartoon bouquet
   const renderCutoutBouquet = (bouquet: BouquetData, idx: number) => {
-    // If the user uploaded their own bouquet picture in the admin dashboard, show it!
+    // If the user uploaded their own bouquet picture in the admin dashboard, ALWAYS apply the bouquet cutout silhouette!
     if (bouquet.customImage) {
       return (
-        <img
-          src={bouquet.customImage}
+        <BouquetCutoutWrapper
+          id={bouquet.id}
+          imageUrl={bouquet.customImage}
           alt={bouquet.title}
-          className="w-full h-full object-contain filter drop-shadow-2xl transition-transform duration-300"
-          loading="eager"
+          cutoutMode={bouquet.cutoutMode || 'bouquet-silhouette'}
+          flowerType={bouquet.flowerType}
         />
       );
     }
 
-    // Default cutout cartoon vectors
+    // Default authentic cutout cartoon vectors with white die-cut sticker outlines
     if (bouquet.id === 'roses' || idx === 0) {
-      return <CutoutBouquetRoses className="w-full h-full drop-shadow-xl" />;
+      return <CutoutBouquetRoses className="w-full h-full drop-shadow-2xl" />;
     }
     if (bouquet.id === 'spring' || idx === 1) {
-      return <CutoutBouquetSpring className="w-full h-full drop-shadow-xl" />;
+      return <CutoutBouquetSpring className="w-full h-full drop-shadow-2xl" />;
     }
     if (bouquet.id === 'lilies' || idx === 2) {
-      return <CutoutBouquetLilies className="w-full h-full drop-shadow-xl" />;
+      return <CutoutBouquetLilies className="w-full h-full drop-shadow-2xl" />;
     }
 
+    // Fallback image wrapped with cutout silhouette mask
     return (
-      <img
-        src={bouquet.image}
+      <BouquetCutoutWrapper
+        id={bouquet.id}
+        imageUrl={bouquet.image}
         alt={bouquet.title}
-        className="w-full h-full object-contain drop-shadow-xl"
-        loading="eager"
+        cutoutMode="bouquet-silhouette"
+        flowerType={bouquet.flowerType}
       />
     );
   };
+
+  const hasAnyCustomImage = bouquets.some((b) => !!b.customImage);
 
   return (
     <div className="relative min-h-screen bg-pastel-stripes flex flex-col justify-between p-4 sm:p-8 overflow-hidden select-none">
@@ -88,6 +96,21 @@ export const BouquetSelectScreen: React.FC<BouquetSelectScreenProps> = ({
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
+          {/* Quick button to restore cartoon cutouts if custom images were uploaded */}
+          {hasAnyCustomImage && onResetBouquetCutout && (
+            <button
+              onClick={() => {
+                bouquets.forEach((b) => onResetBouquetCutout(b.id));
+                cuteAudio.playPop(520);
+              }}
+              className="px-3 py-1.5 bg-white/95 hover:bg-white text-rose-600 border border-pink-200 rounded-full text-xs font-bold shadow-sm flex items-center gap-1 transition-transform hover:scale-105 cursor-pointer"
+              title="Switch all back to hand-drawn cartoon cutout bouquets"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Use Cartoon Cutouts</span>
+            </button>
+          )}
+
           <button
             onClick={onToggleMusic}
             className={`p-2 rounded-full border transition-all cursor-pointer ${
@@ -161,12 +184,12 @@ export const BouquetSelectScreen: React.FC<BouquetSelectScreenProps> = ({
                     !isMobileActive ? 'hidden md:flex' : 'flex'
                   } ${entranceClass}`}
                 >
-                  {/* Cutout Container: NO SQUARE BOX, 100% TRANSPARENT SILHOUETTE */}
+                  {/* Cutout Container: 100% ORGANIC CUTOUT SILHOUETTE, NO SQUARE BOX */}
                   <div className="relative w-56 sm:w-60 md:w-64 h-80 sm:h-92 flex items-center justify-center transition-transform duration-300 transform group-hover:-translate-y-3 group-hover:scale-105">
                     {/* Soft aura on hover only */}
                     <div className="absolute inset-0 bg-pink-300/20 rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-opacity" />
 
-                    {/* Cutout Illustration or Custom Uploaded Bouquet */}
+                    {/* Cutout Illustration or Custom Uploaded Cutout Bouquet */}
                     {renderCutoutBouquet(bouquet, idx)}
 
                     {/* Sparkle badge on hover */}
@@ -176,10 +199,28 @@ export const BouquetSelectScreen: React.FC<BouquetSelectScreenProps> = ({
                   </div>
 
                   {/* Bouquet Label / Name */}
-                  <div className="mt-2 text-center">
+                  <div className="mt-2 text-center flex flex-col items-center">
                     <span className="inline-block px-4 py-1.5 bg-white/95 text-slate-800 font-bubble text-sm sm:text-base font-bold rounded-full shadow-sm border border-pink-200 group-hover:border-pink-400 group-hover:text-pink-600 transition-colors">
                       {bouquet.flowerType}
                     </span>
+
+                    {/* If custom image uploaded, provide a quick one-tap button to switch to cartoon cutout */}
+                    {bouquet.customImage && onResetBouquetCutout && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onResetBouquetCutout(bouquet.id);
+                          cuteAudio.playPop(420);
+                        }}
+                        className="mt-1 text-[11px] font-bold text-rose-600 bg-white/90 hover:bg-white px-2.5 py-0.5 rounded-full border border-pink-200 shadow-xs flex items-center gap-1 transition-transform hover:scale-105 cursor-pointer"
+                        title="Reset to cartoon vector bouquet cutout"
+                      >
+                        <span>🌸</span>
+                        <span>Use Cartoon Cutout</span>
+                      </button>
+                    )}
+
                     <p className="mt-1 text-xs text-pink-400 font-medium">
                       {bouquet.theme === 'heart-collage'
                         ? '❤️ Heart Shaped Memory Collage'
@@ -221,7 +262,7 @@ export const BouquetSelectScreen: React.FC<BouquetSelectScreenProps> = ({
 
       {/* Footer Info */}
       <div className="relative z-10 py-2 text-center text-xs text-pink-400 font-medium">
-        <span>Click any bouquet to open its memory scrapbook 💝</span>
+        <span>Click any cutout bouquet to open its memory scrapbook 💝</span>
       </div>
     </div>
   );

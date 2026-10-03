@@ -12,6 +12,7 @@ export interface BouquetData {
   flowerType: string;
   image: string;
   customImage?: string;
+  cutoutMode?: 'bouquet-silhouette' | 'transparent-cutout' | 'original';
   theme: 'heart-collage' | 'denim-letter' | 'pastel-grid' | 'polaroid-lights';
   tagline: string;
   letterTitle: string;

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { AppConfig, BouquetData, GuestbookEntry } from './types.ts';
-import { loadAppConfig, saveAppConfig, DEFAULT_CONFIG } from './utils/storage.ts';
+import { loadAppConfig, loadAppConfigFromIndexedDB, saveAppConfig, DEFAULT_CONFIG } from './utils/storage.ts';
 import { cuteAudio } from './utils/audio.ts';
 import { PasscodeScreen } from './components/PasscodeScreen.tsx';
 import { GiftPromptScreen } from './components/GiftPromptScreen.tsx';
@@ -28,12 +28,21 @@ export default function App() {
   const [showGuestbook, setShowGuestbook] = useState(false);
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
 
-  // Initialize custom audio when config is loaded or updated
+  // Load from IndexedDB on startup to guarantee full persistence of photos across refreshes
   useEffect(() => {
-    if (config.customMusicUrl) {
-      cuteAudio.setCustomMusic(config.customMusicUrl);
-    }
-  }, [config.customMusicUrl]);
+    let isMounted = true;
+    loadAppConfigFromIndexedDB().then((persisted) => {
+      if (isMounted && persisted) {
+        setConfig(persisted);
+        if (persisted.customMusicUrl) {
+          cuteAudio.setCustomMusic(persisted.customMusicUrl);
+        }
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Sync state changes with persistence
   const handleSaveConfig = (updated: AppConfig) => {
@@ -54,6 +63,14 @@ export default function App() {
     cuteAudio.toggleMusic(config.customMusicUrl, (playing) => {
       setIsMusicPlaying(playing);
     });
+  };
+
+  // Called when user clicks "YES" on the Gift Prompt
+  const handleAcceptGift = () => {
+    // Automatically start background music on user's YES click
+    cuteAudio.startMusic(config.customMusicUrl);
+    setIsMusicPlaying(true);
+    setCurrentStep('bouquets');
   };
 
   const handleSelectBouquet = (bouquet: BouquetData) => {
@@ -86,6 +103,16 @@ export default function App() {
     handleSaveConfig(updated);
   };
 
+  const handleResetBouquetCutout = (bouquetId: string) => {
+    const updated = {
+      ...config,
+      bouquets: config.bouquets.map((b) =>
+        b.id === bouquetId ? { ...b, customImage: undefined, cutoutMode: undefined } : b
+      ),
+    };
+    handleSaveConfig(updated);
+  };
+
   return (
     <div className="min-h-screen bg-pink-50 relative selection:bg-pink-300 selection:text-pink-900">
       {/* FLOW STEP 1: Secret Passcode Gate */}
@@ -101,7 +128,7 @@ export default function App() {
       {/* FLOW STEP 2: Gift Acceptance Prompt (Image 1) */}
       {currentStep === 'gift-prompt' && (
         <GiftPromptScreen
-          onAccept={() => setCurrentStep('bouquets')}
+          onAccept={handleAcceptGift}
           onReject={() => setCurrentStep('rejected-no')}
           onOpenGuestbook={() => setShowGuestbook(true)}
           onOpenAdmin={() => setShowAdmin(true)}
@@ -122,6 +149,7 @@ export default function App() {
           onOpenAdmin={() => setShowAdmin(true)}
           isMusicPlaying={isMusicPlaying}
           onToggleMusic={handleToggleMusic}
+          onResetBouquetCutout={handleResetBouquetCutout}
         />
       )}
 

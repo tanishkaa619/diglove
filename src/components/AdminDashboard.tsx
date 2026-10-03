@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { X, Lock, Key, Image, FileText, Trash2, Plus, Save, RotateCcw, Check, Sparkles, MessageSquare, Music, Play, Pause, Upload, Heart } from 'lucide-react';
+import { X, Lock, Image, Trash2, Plus, Save, RotateCcw, Check, Sparkles, Music, Play, Pause, Upload, Loader2 } from 'lucide-react';
 import { AppConfig, BouquetData, CollagePhoto } from '../types.ts';
 import { cuteAudio } from '../utils/audio.ts';
+import { compressImageFile, processBouquetCutout } from '../utils/imageCompressor.ts';
+import { BouquetCutoutWrapper } from './BouquetCutoutWrapper.tsx';
 
 interface AdminDashboardProps {
   isOpen: boolean;
@@ -22,8 +24,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [passwordInput, setPasswordInput] = useState('');
   const [authError, setAuthError] = useState(false);
 
-  // Editable form state once authenticated
-  const [activeTab, setActiveTab] = useState<'security' | 'bouquets' | 'music' | 'guestbook'>('security');
+  // Form state
+  const [activeTab, setActiveTab] = useState<'security' | 'bouquets' | 'music' | 'guestbook'>('bouquets');
   const [entryCode, setEntryCode] = useState(config.entryPasscode);
   const [adminPass, setAdminPass] = useState(config.adminPassword);
   const [bouquets, setBouquets] = useState<BouquetData[]>(config.bouquets);
@@ -38,6 +40,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [newPhotoUrl, setNewPhotoUrl] = useState('');
   const [newPhotoCaption, setNewPhotoCaption] = useState('');
   const [newPhotoDate, setNewPhotoDate] = useState('');
+  const [isCompressingPhoto, setIsCompressingPhoto] = useState(false);
+  const [isCompressingBouquet, setIsCompressingBouquet] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   if (!isOpen) return null;
@@ -54,38 +58,52 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
-  // Upload local image for collage photo
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Upload and compress local image for collage photo
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          setNewPhotoUrl(event.target.result as string);
+      try {
+        setIsCompressingPhoto(true);
+        const compressedDataUrl = await compressImageFile(file, 1000, 0.85);
+        setNewPhotoUrl(compressedDataUrl);
+        if (!newPhotoCaption) {
+          setNewPhotoCaption(file.name.replace(/\.[^/.]+$/, ''));
         }
-      };
-      reader.readAsDataURL(file);
+        cuteAudio.playPop(580);
+      } catch (err) {
+        console.error('Error compressing photo:', err);
+      } finally {
+        setIsCompressingPhoto(false);
+      }
     }
   };
 
-  // Upload custom bouquet illustration/picture
-  const handleBouquetImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Upload and process custom bouquet illustration/picture into transparent cutout PNG
+  const handleBouquetImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          const imgData = event.target.result as string;
-          const updated = [...bouquets];
-          updated[selectedBouquetIdx] = {
-            ...updated[selectedBouquetIdx],
-            customImage: imgData,
-          };
-          setBouquets(updated);
-          cuteAudio.playSuccess();
-        }
-      };
-      reader.readAsDataURL(file);
+      try {
+        setIsCompressingBouquet(true);
+        // Process into transparent cutout PNG with automatic background keying (NO square white box!)
+        const cutoutDataUrl = await processBouquetCutout(file, 900);
+        const updated = [...bouquets];
+        updated[selectedBouquetIdx] = {
+          ...updated[selectedBouquetIdx],
+          customImage: cutoutDataUrl,
+          cutoutMode: 'bouquet-silhouette', // Default to authentic floral bouquet cutout shape
+        };
+        setBouquets(updated);
+        // Auto-save immediately so it's never lost
+        onSaveConfig({
+          ...config,
+          bouquets: updated,
+        });
+        cuteAudio.playSuccess();
+      } catch (err) {
+        console.error('Error uploading bouquet image:', err);
+      } finally {
+        setIsCompressingBouquet(false);
+      }
     }
   };
 
@@ -131,14 +149,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const updated = [...bouquets];
     updated[selectedBouquetIdx] = {
       ...updated[selectedBouquetIdx],
-      photos: [...updated[selectedBouquetIdx].photos, newPhoto],
+      photos: [newPhoto, ...updated[selectedBouquetIdx].photos],
     };
 
     setBouquets(updated);
     setNewPhotoUrl('');
     setNewPhotoCaption('');
     setNewPhotoDate('');
-    cuteAudio.playPop(620);
+
+    // Auto-save immediately to persistent storage
+    onSaveConfig({
+      ...config,
+      entryPasscode: entryCode.trim(),
+      adminPassword: adminPass.trim(),
+      customMusicUrl: customMusicUrl.trim(),
+      customMusicTitle: customMusicTitle.trim(),
+      bouquets: updated,
+    });
+
+    cuteAudio.playSuccess();
+    setSaveSuccess(true);
+    setTimeout(() => setSaveSuccess(false), 2500);
   };
 
   const handleDeletePhoto = (photoId: string) => {
@@ -148,6 +179,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       photos: updated[selectedBouquetIdx].photos.filter((p) => p.id !== photoId),
     };
     setBouquets(updated);
+    onSaveConfig({
+      ...config,
+      bouquets: updated,
+    });
     cuteAudio.playPop(380);
   };
 
@@ -255,7 +290,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <Sparkles className="w-5 h-5 text-pink-500" />
                 </h2>
                 <p className="text-xs text-slate-500">
-                  Customize your secret codes, own bouquet pictures, heart collages, and music
+                  Manage your secret codes, uploaded bouquet pictures, heart collages, and music
                 </p>
               </div>
 
@@ -265,7 +300,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bubble text-xs font-bold rounded-xl shadow-sm flex items-center gap-1.5 transition-all cursor-pointer"
                 >
                   {saveSuccess ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-                  <span>{saveSuccess ? 'Saved Changes!' : 'Save Changes'}</span>
+                  <span>{saveSuccess ? 'Saved to Memory!' : 'Save Changes'}</span>
                 </button>
                 <button
                   onClick={() => {
@@ -285,16 +320,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             {/* Navigation Tabs */}
             <div className="flex items-center gap-2 mb-6 border-b border-slate-100 pb-2 overflow-x-auto">
               <button
-                onClick={() => setActiveTab('security')}
-                className={`px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-                  activeTab === 'security'
-                    ? 'bg-pink-600 text-white shadow-sm'
-                    : 'bg-pink-50 text-slate-600 hover:bg-pink-100'
-                }`}
-              >
-                🔐 Passcodes
-              </button>
-              <button
                 onClick={() => setActiveTab('bouquets')}
                 className={`px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
                   activeTab === 'bouquets'
@@ -302,7 +327,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     : 'bg-pink-50 text-slate-600 hover:bg-pink-100'
                 }`}
               >
-                🌸 Bouquets &amp; Collages
+                🌸 Bouquets &amp; Photo Collages
               </button>
               <button
                 onClick={() => setActiveTab('music')}
@@ -313,6 +338,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 }`}
               >
                 🎵 Music Audio
+              </button>
+              <button
+                onClick={() => setActiveTab('security')}
+                className={`px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                  activeTab === 'security'
+                    ? 'bg-pink-600 text-white shadow-sm'
+                    : 'bg-pink-50 text-slate-600 hover:bg-pink-100'
+                }`}
+              >
+                🔐 Passcodes
               </button>
               <button
                 onClick={() => setActiveTab('guestbook')}
@@ -326,42 +361,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </button>
             </div>
 
-            {/* TAB 1: Passcodes */}
-            {activeTab === 'security' && (
-              <div className="space-y-6 max-w-lg">
-                <div className="bg-pink-50/70 p-5 rounded-2xl border border-pink-200">
-                  <label className="block text-xs font-bold text-pink-700 uppercase mb-1">
-                    Secret Entry Passcode (For Boyfriend)
-                  </label>
-                  <p className="text-[11px] text-slate-500 mb-2">
-                    The code required on the first screen. (Default: 210406)
-                  </p>
-                  <input
-                    type="text"
-                    value={entryCode}
-                    onChange={(e) => setEntryCode(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl border border-pink-200 font-mono text-base font-bold bg-white focus:outline-none focus:ring-2 focus:ring-pink-400"
-                  />
-                </div>
-
-                <div className="bg-pink-50/70 p-5 rounded-2xl border border-pink-200">
-                  <label className="block text-xs font-bold text-pink-700 uppercase mb-1">
-                    Admin Dashboard Password
-                  </label>
-                  <p className="text-[11px] text-slate-500 mb-2">
-                    The password to access this control dashboard. (Default: 102938)
-                  </p>
-                  <input
-                    type="text"
-                    value={adminPass}
-                    onChange={(e) => setAdminPass(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl border border-pink-200 font-mono text-base font-bold bg-white focus:outline-none focus:ring-2 focus:ring-pink-400"
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* TAB 2: Bouquets & Collages */}
+            {/* TAB 1: Bouquets & Collages */}
             {activeTab === 'bouquets' && (
               <div>
                 {/* Bouquet Selector Buttons */}
@@ -369,7 +369,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   {bouquets.map((b, idx) => (
                     <button
                       key={b.id}
-                      onClick={() => setSelectedBouquetIdx(idx)}
+                      onClick={() => {
+                        setSelectedBouquetIdx(idx);
+                        setNewPhotoUrl('');
+                      }}
                       className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all whitespace-nowrap cursor-pointer ${
                         selectedBouquetIdx === idx
                           ? 'bg-pink-500 text-white border-pink-600 shadow-sm'
@@ -381,83 +384,149 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   ))}
                 </div>
 
-                {/* FEATURE: Upload Your Own Bouquet Picture */}
-                <div className="mb-6 p-4 bg-gradient-to-r from-pink-50 to-rose-50 rounded-2xl border-2 border-pink-200 shadow-sm">
-                  <h4 className="text-xs font-bold text-pink-700 uppercase mb-2 flex items-center gap-2">
-                    <span>💐 Custom Bouquet Picture (Optional)</span>
+                {/* FEATURE: Upload Your Own Bouquet Picture with Live Visible Preview */}
+                <div className="mb-6 p-4 sm:p-5 bg-gradient-to-r from-pink-50 to-rose-50 rounded-2xl border-2 border-pink-200 shadow-sm">
+                  <h4 className="text-xs font-bold text-pink-700 uppercase mb-1 flex items-center gap-2">
+                    <span>💐 Custom Bouquet Picture for Bouquet {selectedBouquetIdx + 1}</span>
                     <Sparkles className="w-4 h-4 text-pink-500" />
                   </h4>
-                  <p className="text-xs text-slate-600 mb-3">
-                    Upload your own photo or drawing of a bouquet for Bouquet {selectedBouquetIdx + 1}! It will replace the default cartoon bouquet on the shelf.
+                  <p className="text-xs text-slate-600 mb-4">
+                    Upload your own photo or drawing of a bouquet! It will appear directly on the flower stand.
                   </p>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                        Upload Your Own Bouquet Photo
-                      </label>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleBouquetImageUpload}
-                        className="w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-pink-200 file:text-pink-800 hover:file:bg-pink-300 cursor-pointer"
-                      />
-                      <div className="mt-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
+                    <div className="sm:col-span-8 space-y-3">
+                      <div>
                         <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                          Or Paste Bouquet Image URL
+                          Upload Local Photo / Drawing
                         </label>
                         <input
-                          type="text"
-                          value={curBouquet.customImage?.startsWith('data:') ? '(Uploaded Bouquet Photo Saved)' : curBouquet.customImage || ''}
-                          onChange={(e) => {
-                            const updated = [...bouquets];
-                            updated[selectedBouquetIdx].customImage = e.target.value;
-                            setBouquets(updated);
-                          }}
-                          placeholder="https://..."
-                          className="w-full px-3 py-1.5 text-xs rounded-xl border border-pink-200 bg-white"
+                          type="file"
+                          accept="image/*"
+                          onChange={handleBouquetImageUpload}
+                          className="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-pink-200 file:text-pink-800 hover:file:bg-pink-300 cursor-pointer"
                         />
+                        {isCompressingBouquet && (
+                          <p className="text-xs text-pink-600 font-semibold mt-1 flex items-center gap-1.5">
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>Optimizing and saving your bouquet photo...</span>
+                          </p>
+                        )}
                       </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                          Or Paste Bouquet Image Web URL
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={curBouquet.customImage?.startsWith('data:') ? '' : curBouquet.customImage || ''}
+                            onChange={(e) => {
+                              const updated = [...bouquets];
+                              updated[selectedBouquetIdx].customImage = e.target.value;
+                              setBouquets(updated);
+                            }}
+                            placeholder={curBouquet.customImage?.startsWith('data:') ? 'Custom uploaded file currently active' : 'https://...'}
+                            className="flex-1 px-3 py-1.5 text-xs rounded-xl border border-pink-200 bg-white"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Cutout Style Options for Custom Image */}
+                      {curBouquet.customImage && (
+                        <div className="pt-2 border-t border-pink-200">
+                          <label className="block text-[11px] font-bold text-slate-700 mb-1.5">
+                            Cutout Shape Mode:
+                          </label>
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = [...bouquets];
+                                updated[selectedBouquetIdx].cutoutMode = 'bouquet-silhouette';
+                                setBouquets(updated);
+                                onSaveConfig({ ...config, bouquets: updated });
+                                cuteAudio.playPop(520);
+                              }}
+                              className={`px-3 py-1 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                                (curBouquet.cutoutMode || 'bouquet-silhouette') === 'bouquet-silhouette'
+                                  ? 'bg-pink-600 text-white border-pink-700 shadow-xs'
+                                  : 'bg-white text-slate-700 border-pink-200 hover:bg-pink-50'
+                              }`}
+                            >
+                              💐 Bouquet Silhouette (Sticker Cutout)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = [...bouquets];
+                                updated[selectedBouquetIdx].cutoutMode = 'transparent-cutout';
+                                setBouquets(updated);
+                                onSaveConfig({ ...config, bouquets: updated });
+                                cuteAudio.playPop(520);
+                              }}
+                              className={`px-3 py-1 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                                curBouquet.cutoutMode === 'transparent-cutout'
+                                  ? 'bg-pink-600 text-white border-pink-700 shadow-xs'
+                                  : 'bg-white text-slate-700 border-pink-200 hover:bg-pink-50'
+                              }`}
+                            >
+                              ✨ Transparent Cutout
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
-                    <div className="flex items-center gap-4 bg-white p-3 rounded-xl border border-pink-100">
-                      <div className="w-20 h-24 bg-pink-50 rounded-lg overflow-hidden border border-pink-200 flex items-center justify-center">
+                    {/* LIVE BOUQUET PREVIEW CARD - ALWAYS CUTOUT SHAPE */}
+                    <div className="sm:col-span-4 flex flex-col items-center justify-center p-3 bg-white rounded-2xl border-2 border-pink-200 shadow-sm text-center">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">
+                        Live Cutout Preview
+                      </span>
+                      <div className="w-28 h-36 bg-pink-50/70 rounded-2xl overflow-hidden border border-pink-100 flex items-center justify-center p-1 relative">
                         {curBouquet.customImage ? (
-                          <img
-                            src={curBouquet.customImage}
-                            alt="Custom Bouquet"
-                            className="w-full h-full object-contain"
+                          <BouquetCutoutWrapper
+                            id={`admin-preview-${selectedBouquetIdx}`}
+                            imageUrl={curBouquet.customImage}
+                            alt="Custom Bouquet Cutout"
+                            cutoutMode={curBouquet.cutoutMode || 'bouquet-silhouette'}
+                            flowerType={curBouquet.flowerType}
                           />
                         ) : (
-                          <span className="text-[10px] text-pink-400 text-center font-bold px-1">
-                            Default Cartoon
-                          </span>
+                          <div className="text-center p-2">
+                            <span className="text-3xl block mb-1">💐</span>
+                            <span className="text-[10px] text-pink-600 font-bold leading-tight block">
+                              Default Cartoon Cutout Active
+                            </span>
+                          </div>
                         )}
                       </div>
-                      <div className="flex flex-col gap-1.5">
-                        <span className="text-xs font-bold text-slate-800">
-                          {curBouquet.customImage ? 'Using Custom Bouquet' : 'Using Default Cutout'}
-                        </span>
-                        {curBouquet.customImage && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const updated = [...bouquets];
-                              updated[selectedBouquetIdx].customImage = undefined;
-                              setBouquets(updated);
-                              cuteAudio.playPop(380);
-                            }}
-                            className="text-[11px] font-semibold text-rose-600 hover:underline text-left cursor-pointer"
-                          >
-                            Reset to Default Cartoon Cutout
-                          </button>
-                        )}
-                      </div>
+
+                      {curBouquet.customImage && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = [...bouquets];
+                            updated[selectedBouquetIdx].customImage = undefined;
+                            updated[selectedBouquetIdx].cutoutMode = undefined;
+                            setBouquets(updated);
+                            onSaveConfig({
+                              ...config,
+                              bouquets: updated,
+                            });
+                            cuteAudio.playPop(380);
+                          }}
+                          className="mt-2 text-xs font-bold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-xl border border-rose-200 transition-colors cursor-pointer"
+                        >
+                          🌸 Use Cartoon Vector Cutout
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
 
-                {/* Collage Style Selector (Heart Shaped, Denim, Lights, Mosaic) */}
+                {/* Collage Style Selector */}
                 <div className="mb-6 bg-pink-50/50 p-4 rounded-2xl border border-pink-200">
                   <label className="block text-xs font-bold text-pink-700 uppercase mb-2">
                     Scrapbook Collage Layout Style
@@ -476,6 +545,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           const updated = [...bouquets];
                           updated[selectedBouquetIdx].theme = themeOpt.id as BouquetData['theme'];
                           setBouquets(updated);
+                          onSaveConfig({
+                            ...config,
+                            bouquets: updated,
+                          });
                           cuteAudio.playPop(520);
                         }}
                         className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all text-center cursor-pointer ${
@@ -578,111 +651,151 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </div>
                 </div>
 
-                {/* Collage Photos Management */}
-                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                {/* ============================================================== */}
+                {/* COLLAGE PHOTOS MANAGEMENT WITH BULLETPROOF VISIBLE PREVIEW */}
+                {/* ============================================================== */}
+                <div className="bg-slate-50 p-4 sm:p-5 rounded-2xl border border-slate-200">
                   <h4 className="text-xs font-bold text-slate-700 uppercase mb-3 flex items-center justify-between">
                     <span>Collage Photos ({curBouquet.photos.length})</span>
                     <span className="text-[11px] font-normal text-slate-500">
-                      Upload from phone/PC or paste image link
+                      Upload from phone or computer
                     </span>
                   </h4>
 
                   {/* Add New Photo Box */}
-                  <div className="bg-white p-4 rounded-xl border border-pink-200 mb-4 shadow-sm">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
-                      <div className="sm:col-span-2">
-                        <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                          Upload Local Image File
-                        </label>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleFileUpload}
-                          className="w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-pink-100 file:text-pink-700 hover:file:bg-pink-200 cursor-pointer"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                          Or Paste Image URL
-                        </label>
-                        <input
-                          type="text"
-                          value={newPhotoUrl.startsWith('data:') ? '(Uploaded File Ready)' : newPhotoUrl}
-                          onChange={(e) => setNewPhotoUrl(e.target.value)}
-                          placeholder="https://..."
-                          className="w-full px-3 py-1.5 text-xs rounded-xl border border-pink-200"
-                        />
-                      </div>
-                    </div>
+                  <div className="bg-white p-4 sm:p-5 rounded-2xl border-2 border-pink-200 mb-6 shadow-sm">
+                    <h5 className="text-xs font-bold text-pink-700 uppercase mb-3 flex items-center gap-1.5">
+                      <Plus className="w-4 h-4" />
+                      <span>Upload &amp; Add New Photo</span>
+                    </h5>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                          Photo Caption
-                        </label>
-                        <input
-                          type="text"
-                          value={newPhotoCaption}
-                          onChange={(e) => setNewPhotoCaption(e.target.value)}
-                          placeholder="e.g. That time we laughed in the rain"
-                          className="w-full px-3 py-1.5 text-xs rounded-xl border border-pink-200"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                          Date / Note
-                        </label>
-                        <input
-                          type="text"
-                          value={newPhotoDate}
-                          onChange={(e) => setNewPhotoDate(e.target.value)}
-                          placeholder="e.g. August 2024"
-                          className="w-full px-3 py-1.5 text-xs rounded-xl border border-pink-200"
-                        />
-                      </div>
-                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start mb-4">
+                      {/* Left: Inputs */}
+                      <div className="md:col-span-8 space-y-3">
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                            1. Select Image File from Device *
+                          </label>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleFileUpload}
+                            className="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-pink-100 file:text-pink-700 hover:file:bg-pink-200 cursor-pointer"
+                          />
+                          {isCompressingPhoto && (
+                            <p className="text-xs text-pink-600 font-semibold mt-1 flex items-center gap-1.5">
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              <span>Optimizing photo for instant loading...</span>
+                            </p>
+                          )}
+                        </div>
 
-                    {newPhotoUrl && (
-                      <div className="flex items-center gap-3 mb-3 p-2 bg-pink-50 rounded-xl">
-                        <img
-                          src={newPhotoUrl}
-                          alt="Preview"
-                          className="w-12 h-12 rounded-lg object-cover border border-pink-200"
-                        />
-                        <span className="text-xs text-emerald-600 font-semibold">
-                          Image ready to add!
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                            Or Direct Image URL
+                          </label>
+                          <input
+                            type="text"
+                            value={newPhotoUrl.startsWith('data:') ? '' : newPhotoUrl}
+                            onChange={(e) => setNewPhotoUrl(e.target.value)}
+                            placeholder={newPhotoUrl.startsWith('data:') ? 'Local file selected and ready!' : 'https://...'}
+                            className="w-full px-3 py-1.5 text-xs rounded-xl border border-pink-200 bg-white"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                              2. Caption (Optional)
+                            </label>
+                            <input
+                              type="text"
+                              value={newPhotoCaption}
+                              onChange={(e) => setNewPhotoCaption(e.target.value)}
+                              placeholder="e.g. Laughing at the cafe"
+                              className="w-full px-3 py-1.5 text-xs rounded-xl border border-pink-200"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                              3. Date or Note (Optional)
+                            </label>
+                            <input
+                              type="text"
+                              value={newPhotoDate}
+                              onChange={(e) => setNewPhotoDate(e.target.value)}
+                              placeholder="e.g. That special sunset"
+                              className="w-full px-3 py-1.5 text-xs rounded-xl border border-pink-200"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right: Live Preview Box of the Uploaded Photo */}
+                      <div className="md:col-span-4 flex flex-col items-center justify-center p-3 bg-pink-50/50 rounded-2xl border-2 border-dashed border-pink-300 text-center min-h-[140px]">
+                        <span className="text-[10px] font-bold text-pink-700 uppercase tracking-wider mb-2">
+                          Photo Preview
                         </span>
+                        {newPhotoUrl ? (
+                          <div className="relative w-28 h-28 bg-white p-1 rounded-xl shadow-md border border-pink-200 overflow-hidden">
+                            <img
+                              src={newPhotoUrl}
+                              alt="Upload Preview"
+                              className="w-full h-full object-cover rounded-lg"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setNewPhotoUrl('')}
+                              className="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-full shadow-md hover:bg-red-700"
+                              title="Clear photo"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="text-center text-slate-400 py-4">
+                            <Image className="w-8 h-8 mx-auto mb-1 text-pink-300" />
+                            <span className="text-[11px]">Select a photo to preview</span>
+                          </div>
+                        )}
                       </div>
-                    )}
+                    </div>
 
                     <button
                       onClick={handleAddPhoto}
-                      disabled={!newPhotoUrl.trim()}
-                      className="px-4 py-2 bg-pink-600 hover:bg-pink-700 disabled:opacity-50 text-white font-bubble text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                      disabled={!newPhotoUrl.trim() || isCompressingPhoto}
+                      className="w-full sm:w-auto px-6 py-2.5 bg-pink-600 hover:bg-pink-700 disabled:opacity-50 text-white font-bubble text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer"
                     >
-                      <Plus className="w-4 h-4" />
-                      <span>Add Photo to Collage</span>
+                      <Plus className="w-4 h-4 stroke-[3]" />
+                      <span>Add Photo &amp; Save to Collage</span>
                     </button>
                   </div>
 
-                  {/* Existing Photos Grid */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                  {/* Existing Photos Grid with thumbnails & captions */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
                     {curBouquet.photos.map((photo) => (
                       <div
                         key={photo.id}
-                        className="relative bg-white p-2 rounded-xl border border-slate-200 shadow-sm group"
+                        className="relative bg-white p-2.5 rounded-2xl border-2 border-pink-100 shadow-sm group hover:border-pink-300 transition-colors"
                       >
-                        <img
-                          src={photo.url}
-                          alt={photo.caption}
-                          className="w-full aspect-square object-cover rounded-lg mb-1"
-                        />
-                        <p className="text-[11px] font-bold text-slate-800 truncate">
+                        <div className="w-full aspect-square bg-slate-100 rounded-xl overflow-hidden mb-2 relative">
+                          <img
+                            src={photo.url}
+                            alt={photo.caption}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <p className="text-xs font-bold text-slate-800 truncate font-bubble">
                           {photo.caption}
                         </p>
+                        {photo.date && (
+                          <p className="text-[10px] text-pink-500 font-medium truncate">
+                            {photo.date}
+                          </p>
+                        )}
                         <button
                           onClick={() => handleDeletePhoto(photo.id)}
-                          className="absolute top-3 right-3 p-1.5 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-md cursor-pointer"
+                          className="absolute top-4 right-4 p-1.5 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-md transition-transform hover:scale-110 cursor-pointer"
                           title="Delete Photo"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -694,7 +807,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             )}
 
-            {/* TAB 3: Background Music Settings */}
+            {/* TAB 2: Background Music Settings */}
             {activeTab === 'music' && (
               <div className="space-y-6 max-w-xl">
                 <div className="bg-pink-50/70 p-5 rounded-3xl border-2 border-pink-200">
@@ -705,7 +818,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </h3>
                   </div>
                   <p className="text-xs text-slate-600 mb-4">
-                    Upload an MP3/audio file from your computer or phone, or paste an audio link. It will play softly across the whole website via the clean top bar speaker button!
+                    Upload an MP3/audio file from your computer or phone, or paste an audio link. It will automatically start playing when your boyfriend clicks &quot;YES&quot;!
                   </p>
 
                   {/* File Upload Field */}
@@ -775,6 +888,41 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </button>
                     )}
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 3: Passcodes */}
+            {activeTab === 'security' && (
+              <div className="space-y-6 max-w-lg">
+                <div className="bg-pink-50/70 p-5 rounded-2xl border border-pink-200">
+                  <label className="block text-xs font-bold text-pink-700 uppercase mb-1">
+                    Secret Entry Passcode (For Boyfriend)
+                  </label>
+                  <p className="text-[11px] text-slate-500 mb-2">
+                    The code required on the first screen. (Default: 210406)
+                  </p>
+                  <input
+                    type="text"
+                    value={entryCode}
+                    onChange={(e) => setEntryCode(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl border border-pink-200 font-mono text-base font-bold bg-white focus:outline-none focus:ring-2 focus:ring-pink-400"
+                  />
+                </div>
+
+                <div className="bg-pink-50/70 p-5 rounded-2xl border border-pink-200">
+                  <label className="block text-xs font-bold text-pink-700 uppercase mb-1">
+                    Admin Dashboard Password
+                  </label>
+                  <p className="text-[11px] text-slate-500 mb-2">
+                    The password to access this control dashboard. (Default: 102938)
+                  </p>
+                  <input
+                    type="text"
+                    value={adminPass}
+                    onChange={(e) => setAdminPass(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl border border-pink-200 font-mono text-base font-bold bg-white focus:outline-none focus:ring-2 focus:ring-pink-400"
+                  />
                 </div>
               </div>
             )}

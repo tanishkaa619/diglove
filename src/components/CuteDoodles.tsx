@@ -328,7 +328,32 @@ export const ConversationHeart: React.FC<{ text?: string; className?: string }> 
 export const CutoutBouquetRoses: React.FC<{ className?: string }> = ({ className = 'w-full h-full' }) => {
   return (
     <div className={`relative flex items-center justify-center select-none ${className}`}>
-      <svg viewBox="0 0 280 400" className="w-full h-full filter drop-shadow-xl" fill="none">
+      <svg viewBox="0 0 280 400" className="w-full h-full filter drop-shadow-2xl" fill="none">
+        {/* Outer Die-Cut White Sticker Outline Backing (Matches Picture 3) */}
+        <path
+          d="M 140,55 
+             C 165,52 190,62 208,76 
+             C 224,90 236,110 236,132 
+             C 236,150 228,166 218,178 
+             C 224,188 226,202 216,215 
+             C 205,225 192,230 182,236 
+             C 172,255 162,290 152,340 
+             C 150,355 146,380 144,388 
+             C 142,392 138,392 136,388 
+             C 134,380 130,355 128,340 
+             C 118,290 108,255 98,236 
+             C 88,230 75,225 64,215 
+             C 54,202 56,188 62,178 
+             C 52,166 44,150 44,132 
+             C 44,110 56,90 72,76 
+             C 90,62 115,52 140,55 Z"
+          fill="#FFFFFF"
+          stroke="#FFFFFF"
+          strokeWidth="14"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+
         {/* Wrapping Paper Back Flap (angled newspaper wrap) */}
         <polygon points="50,150 140,320 230,150 140,80" fill="#F8FAFC" stroke="#334155" strokeWidth="4" strokeLinejoin="round" />
         <polygon points="40,160 140,330 240,160 140,90" fill="#F1F5F9" opacity="0.9" />
@@ -426,7 +451,32 @@ export const CutoutBouquetRoses: React.FC<{ className?: string }> = ({ className
 export const CutoutBouquetSpring: React.FC<{ className?: string }> = ({ className = 'w-full h-full' }) => {
   return (
     <div className={`relative flex items-center justify-center select-none ${className}`}>
-      <svg viewBox="0 0 280 400" className="w-full h-full filter drop-shadow-xl" fill="none">
+      <svg viewBox="0 0 280 400" className="w-full h-full filter drop-shadow-2xl" fill="none">
+        {/* Outer Die-Cut White Sticker Outline Backing */}
+        <path
+          d="M 140,55 
+             C 165,52 195,62 214,78 
+             C 228,92 236,112 234,135 
+             C 232,154 224,170 215,182 
+             C 220,192 220,205 212,216 
+             C 200,226 188,232 178,238 
+             C 168,255 158,290 150,340 
+             C 148,355 145,380 143,388 
+             C 141,392 137,392 135,388 
+             C 133,380 130,355 128,340 
+             C 120,290 110,255 100,238 
+             C 90,232 78,226 66,216 
+             C 58,205 58,192 63,182 
+             C 54,170 46,154 44,135 
+             C 42,112 50,92 64,78 
+             C 83,62 113,52 140,55 Z"
+          fill="#FFFFFF"
+          stroke="#FFFFFF"
+          strokeWidth="14"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+
         {/* Wrapping Paper Back Flap */}
         <polygon points="55,140 140,325 225,140 140,75" fill="#F8FAFC" stroke="#475569" strokeWidth="4" strokeLinejoin="round" />
         <polygon points="45,150 140,335 235,150 140,85" fill="#F1F5F9" opacity="0.8" />
@@ -513,7 +563,32 @@ export const CutoutBouquetSpring: React.FC<{ className?: string }> = ({ classNam
 export const CutoutBouquetLilies: React.FC<{ className?: string }> = ({ className = 'w-full h-full' }) => {
   return (
     <div className={`relative flex items-center justify-center select-none ${className}`}>
-      <svg viewBox="0 0 280 400" className="w-full h-full filter drop-shadow-xl" fill="none">
+      <svg viewBox="0 0 280 400" className="w-full h-full filter drop-shadow-2xl" fill="none">
+        {/* Outer Die-Cut White Sticker Outline Backing */}
+        <path
+          d="M 140,25 
+             C 165,22 198,35 218,55 
+             C 235,74 246,98 244,125 
+             C 242,146 232,165 220,178 
+             C 225,188 226,202 216,215 
+             C 205,226 190,232 180,240 
+             C 170,260 160,300 150,350 
+             C 148,365 145,390 143,398 
+             C 141,402 137,402 135,398 
+             C 133,390 130,365 128,350 
+             C 118,300 108,260 98,240 
+             C 88,232 73,226 62,215 
+             C 52,202 53,188 58,178 
+             C 46,165 36,146 34,125 
+             C 32,98 43,74 60,55 
+             C 80,35 113,22 140,25 Z"
+          fill="#FFFFFF"
+          stroke="#FFFFFF"
+          strokeWidth="14"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+
         {/* Brown Kraft Paper Back Cone */}
         <polygon points="60,140 140,335 220,140 140,80" fill="#D97706" opacity="0.9" stroke="#78350F" strokeWidth="4" strokeLinejoin="round" />
         <polygon points="50,150 140,345 230,150 140,90" fill="#B45309" opacity="0.6" />

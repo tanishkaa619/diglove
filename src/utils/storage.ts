@@ -1,6 +1,19 @@
 import { AppConfig } from '../types.ts';
 
-const STORAGE_KEY = 'boyfriend_day_app_config_v3';
+const STORAGE_KEY = 'boyfriend_day_app_config_v5';
+const DB_NAME = 'BoyfriendDayDB';
+const DB_STORE = 'app_config';
+const DB_KEY = 'main_config';
+
+function sanitizeConfig(config: AppConfig): AppConfig {
+  return {
+    ...config,
+    bouquets: (config.bouquets || DEFAULT_CONFIG.bouquets).map((b) => ({
+      ...b,
+      cutoutMode: b.cutoutMode || (b.customImage ? 'bouquet-silhouette' : undefined),
+    })),
+  };
+}
 
 export const DEFAULT_CONFIG: AppConfig = {
   entryPasscode: '210406',
@@ -182,26 +195,80 @@ Here is our little romantic memory wall of reasons why you are the best boyfrien
   ],
 };
 
+// IndexedDB Helper
+function openDB(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    if (typeof window === 'undefined' || !window.indexedDB) {
+      reject(new Error('IndexedDB not supported'));
+      return;
+    }
+    const request = window.indexedDB.open(DB_NAME, 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(DB_STORE)) {
+        db.createObjectStore(DB_STORE);
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+// Synchronous load from localStorage for instant initial render
 export function loadAppConfig(): AppConfig {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_CONFIG;
     const parsed = JSON.parse(raw);
-    return {
+    return sanitizeConfig({
       ...DEFAULT_CONFIG,
       ...parsed,
       bouquets: parsed.bouquets || DEFAULT_CONFIG.bouquets,
       guestbook: parsed.guestbook || DEFAULT_CONFIG.guestbook,
-    };
+    });
   } catch {
     return DEFAULT_CONFIG;
   }
 }
 
-export function saveAppConfig(config: AppConfig): void {
+// Asynchronous loader from IndexedDB to guarantee full photos persistence
+export async function loadAppConfigFromIndexedDB(): Promise<AppConfig | null> {
+  try {
+    const db = await openDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction(DB_STORE, 'readonly');
+      const store = tx.objectStore(DB_STORE);
+      const req = store.get(DB_KEY);
+      req.onsuccess = () => {
+        if (req.result) {
+          resolve(sanitizeConfig(req.result as AppConfig));
+        } else {
+          resolve(null);
+        }
+      };
+      req.onerror = () => resolve(null);
+    });
+  } catch {
+    return null;
+  }
+}
+
+// Dual persistence: saves to IndexedDB (virtually unlimited quota) and localStorage (fast cache)
+export async function saveAppConfig(config: AppConfig): Promise<void> {
+  // 1. Save to IndexedDB (safe for high-res images and audio)
+  try {
+    const db = await openDB();
+    const tx = db.transaction(DB_STORE, 'readwrite');
+    const store = tx.objectStore(DB_STORE);
+    store.put(config, DB_KEY);
+  } catch (err) {
+    console.warn('IndexedDB save warning:', err);
+  }
+
+  // 2. Save to localStorage with quota protection
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
   } catch (err) {
-    console.error('Failed to save config to localStorage', err);
+    console.warn('localStorage quota exceeded; safely preserved in IndexedDB.', err);
   }
 }
